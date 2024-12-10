@@ -1,34 +1,38 @@
 from flask import Flask, request, jsonify, send_from_directory
+from test import test_statement
 
 app = Flask(__name__)
 
 @app.route('/')
 def home():
-    return send_from_directory('.', 'index.html')  # Serve the HTML file
+    return send_from_directory('.', 'index.html')
 
 @app.route('/predict', methods=['POST'])
 def predict():
-    # Get the input data from the request
     data = request.json
-    probability = data.get('probability', 0)
+    if 'input_text' not in data:
+        return jsonify({'error': 'No input_text provided'}), 400
+    
+    input_text = data['input_text']
+    
+    try:
+        response = test_statement(input_text)
+        suicide_percentage = response.get('suicide_percentage')
+        predicted_class = response.get('ensemble_prediction')
+        
+        if suicide_percentage is None:
+            return jsonify({'error': 'No suicide percentage found in the response'}), 500
 
-    # Process the input as needed (this is where you would use your logic)
-    if probability > 50:
-        predicted_class = 'positive'
-    elif probability < 50:
-        predicted_class = 'negative'
-    else:
-        predicted_class = 'invalid'
-
-    response = {
-        'predicted_class': predicted_class,
-        'formatted_probability': round(probability, 2)
-    }
-    return jsonify(response)
+        return jsonify({
+            'suicide_percentage': suicide_percentage,
+            'predicted_class': predicted_class
+        })
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
 
 @app.route('/<path:path>')
 def send_static(path):
-    return send_from_directory('.', path)  # Serve static files (CSS, JS)
+    return send_from_directory('.', path)
 
 if __name__ == '__main__':
     app.run(debug=True)
